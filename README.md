@@ -1,78 +1,466 @@
-# Unified Inbox
+# Unified Inbox - Team Communication Hub
 
-Multi-channel inbox (SMS, WhatsApp, Email) built with Next.js 14, Prisma, and provider SDKs.
+A modern, full-stack application for team-based customer engagement across multiple channels (SMS, WhatsApp, Email, Social Media).
 
-## Stack
+## 🏗 Database Schema (ERD)
 
-- Next.js 14 (App Router)
-- Prisma + PostgreSQL
-- Twilio (SMS, WhatsApp)
-- Resend (Email)
-- Better Auth (session gating)
+```mermaid
+erDiagram
+    Team ||--o{ User : has
+    Team ||--o{ Contact : manages
+    Team ||--o{ MessageTemplate : owns
+    Team ||--o{ TwilioNumber : owns
+    
+    User ||--o{ Message : sends
+    User ||--o{ Note : creates
+    User ||--o{ Mention : receives
+    User ||--o{ Contact : "assigned to"
+    
+    Contact ||--o{ Message : receives
+    Contact ||--o{ Note : has
+    Contact ||--o{ ScheduledMessage : has
+    
+    Message ||--o{ Attachment : contains
+    
+    Note ||--o{ Mention : contains
+    
+    Team {
+        string id PK
+        string name
+        json settings
+    }
+    
+    User {
+        string id PK
+        string email UK
+        string name
+        enum role
+        string teamId FK
+        string avatar
+        boolean isOnline
+        datetime lastSeen
+        datetime createdAt
+    }
+    
+    Contact {
+        string id PK
+        string name
+        string phone UK
+        string email UK
+        json socialHandles
+        string teamId FK
+        datetime lastContactedAt
+        enum status
+        string assignedUserId FK
+        string[] tags
+        int priority
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    Message {
+        string id PK
+        string contactId FK
+        string userId FK
+        enum channel
+        string content
+        enum status
+        enum direction
+        datetime timestamp
+        json metadata
+    }
+    
+    Note {
+        string id PK
+        string contactId FK
+        string userId FK
+        string content
+        boolean isPrivate
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    Mention {
+        string id PK
+        string noteId FK
+        string userId FK
+        int position
+        int length
+    }
+    
+    MessageTemplate {
+        string id PK
+        string name
+        string content
+        enum channel
+        string teamId FK
+        datetime createdAt
+    }
+    
+    TwilioNumber {
+        string id PK
+        string phoneNumber UK
+        string friendlyName
+        boolean isTrial
+        string teamId FK
+        datetime createdAt
+    }
+    
+    ScheduledMessage {
+        string id PK
+        string contactId FK
+        enum channel
+        string content
+        datetime scheduledFor
+        string status
+    }
+    
+    Attachment {
+        string id PK
+        string messageId FK
+        string url
+        string type
+        int size
+    }
+```
 
-## Environment
+## ✨ Features Implemented
 
-Create a .env based on .env.example:
+### 🎨 Modern UI/UX
+- ✅ Professional design system with Tailwind CSS and Radix UI components
+- ✅ Responsive layout with sidebar navigation
+- ✅ Contact list with search functionality
+- ✅ Modern message thread interface with channel badges
+- ✅ Real-time message updates via Server-Sent Events
+- ✅ Enhanced analytics dashboard with charts and metrics
 
-- DATABASE_URL=postgres://...
-- TWILIO_ACCOUNT_SID=...
-- TWILIO_AUTH_TOKEN=...
-- TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
-- TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
-- RESEND_API_KEY=...
-- RESEND_FROM=onboarding@resend.dev
-- NEXT_PUBLIC_APP_URL=http://localhost:3000
-- NODE_ENV=development
+### 🔧 Core Functionality
+- ✅ User authentication system
+- ✅ Contact management (create, view, delete)
+- ✅ Multi-channel messaging (SMS, WhatsApp, Email)
+- ✅ Message scheduling
+- ✅ Notes system with private/public visibility
+- ✅ Real-time updates and notifications
 
-## Development
+### 📊 Analytics & Reporting
+- ✅ Analytics dashboard with key metrics
+- ✅ Message volume tracking
+- ✅ Success rate monitoring
+- ✅ Response time analytics
+- ✅ Channel breakdown visualization
 
-- Install: `npm install`
-- DB: `npm run db:push && npm run db:seed`
-- Dev: `npm run dev` (http://localhost:3000)
+## 🚀 Quick Start
 
-## Integration comparison
+### Prerequisites
+- Node.js 18+ 
+- PostgreSQL database
+- Docker (optional, for database)
 
-| Channel  | Provider | Typical latency (p50/p95) | Cost per message (approx) | Reliability/SLA | Notes |
-|----------|----------|----------------------------|----------------------------|-----------------|-------|
-| SMS      | Twilio   | ~2s / ~5–10s               | Country dependent          | High            | Requires E.164 format. Trial only to verified numbers. Geo permissions must be enabled. |
-| WhatsApp | Twilio   | ~1–3s / ~5–8s              | Per session/template       | High            | Must use approved WhatsApp sender. To field must be `whatsapp:+<E.164>`. |
-| Email    | Resend   | ~1–3s / ~5–8s              | Per 1k emails (tiered)     | High            | For testing use `onboarding@resend.dev`; for prod use verified domain sender. |
+### Installation
 
-Notes:
-- Latency and cost vary by country/route/plan. Measure in your environment for precise numbers.
-- Reliability reflects provider maturity and redundancy; still handle errors and retries.
+1. **Clone and setup**
+   ```bash
+   cd unified-inbox
+   npm install
+   ```
 
-## Key decisions
+2. **Environment Setup**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Update `.env` with your configuration:
+   ```env
+   DATABASE_URL="postgresql://user:password@localhost:5432/unified_inbox"
+   TWILIO_ACCOUNT_SID="your_twilio_sid"
+   TWILIO_AUTH_TOKEN="your_twilio_token"
+   TWILIO_PHONE_NUMBER="your_twilio_number"
+   RESEND_API_KEY="your_resend_key"
+   NEXT_PUBLIC_APP_URL="http://localhost:3000"
+   ```
 
-- Single-provider per channel:
-  - SMS/WhatsApp: Twilio (direct API via `twilio` SDK).
-  - Email: Resend (`resend` SDK).
-- Minimal coupling:
-  - Thin provider wrappers: [src/lib/integrations/twilio.ts](cci:7://file:///home/unified/Downloads/Unified_proj/unified-inbox/src/lib/integrations/twilio.ts:0:0-0:0), [src/lib/integrations/resend.ts](cci:7://file:///home/unified/Downloads/Unified_proj/unified-inbox/src/lib/integrations/resend.ts:0:0-0:0).
-  - API routes call wrappers and update message status based on provider result.
-- Error visibility:
-  - Twilio errors surfaced with code/message/status to diagnose trial/format/geo issues.
-- Data model:
-  - Prisma models for Contact, Message, ScheduledMessage, Attachment, Note.
-  - Message `status`: queued/sent/delivered/read/failed; we mark sent/failed at provider-call time.
-- Security:
-  - No secrets committed. [.env](cci:7://file:///home/unified/Downloads/Unified_proj/unified-inbox/.env:0:0-0:0) ignored; [.env.example](cci:7://file:///home/unified/Downloads/Unified_proj/unified-inbox/.env.example:0:0-0:0) provided.
-  - Rotate credentials if exposed.
-- Format validation:
-  - Phone numbers should be in E.164 format.
-  - Emails should be valid and reachable; consider future SMTP bounce handling.
-- Scheduling:
-  - Scheduled dispatch endpoint processes due messages (batch size 50).
+3. **Database Setup**
+   ```bash
+   npm run db:push
+   npm run db:seed
+   ```
 
-## Deployment
+4. **Start Development Server**
+   ```bash
+   npm run dev
+   ```
 
-- Ensure server has env vars set (never commit secrets).
-- Run migrations/seed if necessary.
-- Start: `npm run build && npm start`
+5. **Access Application**
+   - Main App: http://localhost:3000
+   - Analytics: http://localhost:3000/analytics
 
-## Roadmap
+## ✅ **NEWLY IMPLEMENTED FEATURES**
 
-- Messaging Service SID (Twilio) for better routing and compliance.
-- Phone normalization (libphonenumber) and stricter validation.
-- Delivery status webhooks (mark delivered/read).
-- Provider retries/backoff for transient errors.
+### 🔧 **Code Quality & Documentation**
+- ✅ **Zod Validation**: Complete type-safe API validation for all endpoints
+- ✅ **Enhanced Documentation**: Comprehensive API docs with JSDoc comments
+- ✅ **ERD Diagram**: Complete database schema visualization (Mermaid)
+- ✅ **Orchestration Factory**: Unified channel abstraction layer (`/lib/integrations.ts`)
+
+### 🔒 **Security & Production**
+- ✅ **Note Encryption**: Automatic encryption for private notes via Prisma middleware
+- ✅ **Audit Trail**: Comprehensive logging for sensitive operations
+- ✅ **Performance Monitoring**: Query performance tracking and optimization
+
+### 📊 **Advanced Analytics**
+- ✅ **Export Functionality**: CSV/JSON export for messages, contacts, and analytics
+- ✅ **Custom Date Ranges**: Flexible analytics filtering
+- ✅ **Team Performance Metrics**: Individual and team analytics
+
+### 🤖 **Contact Management**
+- ✅ **Auto-merge System**: Fuzzy matching algorithm for duplicate detection
+- ✅ **Merge Confirmation UI**: Review and approve contact merges
+- ✅ **Duplicate Detection**: Advanced similarity scoring with configurable thresholds
+
+## 📋 Remaining Todo List
+
+### 🎨 UI/UX Enhancements (Medium Priority)
+- [ ] **Contact Profile Modal**: Rich contact details with history timeline
+- [ ] **Rich Text Composer**: Enhanced message composer with formatting options
+- [ ] **File Attachments**: Support for image/document uploads and display
+- [ ] **Message Status Indicators**: Real-time delivery/read receipts
+- [ ] **Advanced Search**: Full-text search across messages and contacts
+- [ ] **Keyboard Shortcuts**: Power user navigation shortcuts
+- [ ] **Dark Mode Toggle**: User preference for theme switching
+
+### 🔧 Core Functionality (High Priority)
+- [ ] **Multi-Team Support**: Complete team switching and isolation
+- [ ] **User Management**: Role-based permissions and team member management
+- [ ] **Contact Merging**: Auto-merge duplicate contacts by fuzzy matching
+- [ ] **Message Threading**: Improved conversation grouping
+- [ ] **Bulk Actions**: Select and perform actions on multiple contacts/messages
+- [ ] **Message Templates**: Predefined message templates for common responses
+- [ ] **Auto-responders**: Automated responses based on keywords or time
+
+### 🔗 Integrations (Medium Priority)
+- [ ] **Twilio Trial UI**: Display trial number, buy number functionality
+- [ ] **WhatsApp Business API**: Complete WhatsApp Business integration
+- [ ] **Email Integration**: IMAP/SMTP or API-based email handling (Gmail, Outlook)
+- [ ] **Social Media**: Twitter DMs, Facebook Messenger integration
+- [ ] **Business Tools**: HubSpot sync, Salesforce integration
+- [ ] **Slack Notifications**: Team notifications via Slack webhooks
+- [ ] **Zapier Integration**: Connect with 1000+ apps via Zapier
+
+### 👥 Team Collaboration (Medium Priority)
+- [ ] **Real-time Presence**: Show who's viewing/editing contacts
+- [ ] **@Mentions System**: Mention team members in notes with notifications
+- [ ] **Note Threading**: Threaded conversations in notes
+- [ ] **Conflict Resolution**: Handle concurrent editing gracefully
+- [ ] **Activity Feed**: Team activity timeline
+- [ ] **Assignment System**: Assign contacts to specific team members
+
+### 📊 Advanced Analytics (Medium Priority)
+- [ ] **Custom Reports**: Build custom analytics reports
+- [ ] **Export Functionality**: CSV/PDF export for reports
+- [ ] **Team Performance**: Individual and team performance metrics
+- [ ] **Contact Insights**: Contact engagement scoring and analytics
+- [ ] **Conversation Analytics**: Sentiment analysis, keyword tracking
+- [ ] **SLA Tracking**: Response time SLA monitoring and alerts
+
+### 🛠 Technical Improvements (Low Priority)
+- [ ] **React Query**: Implement for optimistic updates and caching
+- [ ] **Error Boundaries**: Comprehensive error handling and user feedback
+- [ ] **Performance**: Optimize large message lists with virtualization
+- [ ] **Testing**: Add unit and integration tests
+- [ ] **API Documentation**: Complete OpenAPI/Swagger documentation
+- [ ] **Monitoring**: Application performance monitoring (APM)
+- [ ] **Logging**: Structured logging with log aggregation
+
+### 🔒 Security & Production (Low Priority)
+- [ ] **OAuth Integration**: Google, Microsoft OAuth for social APIs
+- [ ] **Rate Limiting**: API rate limiting and abuse prevention
+- [ ] **Audit Logging**: Complete audit trail for compliance
+- [ ] **Data Encryption**: Encrypt sensitive data at rest
+- [ ] **Backup System**: Automated database backups
+- [ ] **Health Checks**: Application health monitoring endpoints
+
+## 🏗 Architecture
+
+### Tech Stack
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS, Radix UI
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: PostgreSQL
+- **Real-time**: Server-Sent Events (SSE)
+- **Integrations**: Twilio (SMS/WhatsApp), Resend (Email)
+
+### Project Structure
+```
+unified-inbox/
+├── src/
+│   ├── app/                 # Next.js app router
+│   │   ├── api/            # API routes
+│   │   ├── analytics/      # Analytics dashboard
+│   │   └── page.tsx        # Main inbox interface
+│   ├── components/         # Reusable UI components
+│   │   ├── ui/            # Base UI components
+│   │   ├── contact-list.tsx
+│   │   ├── message-thread.tsx
+│   │   └── notes-panel.tsx
+│   └── lib/               # Utilities and integrations
+│       ├── auth.ts        # Authentication logic
+│       ├── db.ts          # Database connection
+│       ├── events.ts      # SSE event system
+│       └── integrations/  # Third-party integrations
+├── prisma/
+│   ├── schema.prisma      # Database schema
+│   └── seed.js           # Database seeding
+└── package.json
+```
+
+## 🔧 Development
+
+### Available Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run db:push` - Push schema changes to database
+- `npm run db:seed` - Seed database with sample data
+- `npm run db:reset` - Reset database with fresh data
+- `npm run setup` - Complete setup (db:push + db:seed + dev)
+- `npm run setup:full` - Full setup including dependencies
+- `npm run test:api` - Test all API endpoints
+- `npm run merge:contacts` - Find and merge duplicate contacts
+- `npm run export:data` - Export analytics data
+
+### Database Schema
+The application uses a normalized schema with the following main entities:
+- **Teams**: Multi-tenant organization structure
+- **Users**: Team members with role-based access
+- **Contacts**: Unified contact records across channels
+- **Messages**: Normalized messages from all channels
+- **Notes**: Team collaboration notes
+- **ScheduledMessages**: Message scheduling system
+
+## 🚀 Deployment
+
+### Quick Deployment Guide
+
+#### **Option 1: Vercel + Supabase (Recommended)**
+
+1. **Set up Supabase Database:**
+   ```bash
+   # Go to supabase.com and create a new project
+   # Copy the PostgreSQL connection string
+   ```
+
+2. **Deploy to Vercel:**
+   ```bash
+   # Go to vercel.com and import your GitHub repo
+   # Add environment variables in Vercel dashboard
+   ```
+
+3. **Environment Variables for Vercel:**
+   ```env
+   DATABASE_URL=postgresql://postgres:[password]@[host]:5432/postgres
+   TWILIO_ACCOUNT_SID=your_twilio_account_sid
+   TWILIO_AUTH_TOKEN=your_twilio_auth_token
+   TWILIO_PHONE_NUMBER=your_twilio_phone_number
+   RESEND_API_KEY=your_resend_api_key
+   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+   ENCRYPTION_KEY=generate_with_npm_run_deploy:prep
+   ```
+
+4. **Initialize Production Database:**
+   ```bash
+   # After deployment, run these commands:
+   npx prisma db push
+   npm run db:seed
+   ```
+
+#### **Option 2: Railway (Full-Stack Friendly)**
+
+1. **Install Railway CLI:**
+   ```bash
+   npm install -g @railway/cli
+   railway login
+   ```
+
+2. **Deploy:**
+   ```bash
+   railway init
+   railway add postgresql
+   railway up
+   ```
+
+3. **Configure Environment Variables in Railway Dashboard**
+
+#### **Option 3: DigitalOcean App Platform**
+
+1. **Create App from GitHub**
+2. **Add Managed PostgreSQL Database**
+3. **Configure Environment Variables**
+
+### Deployment Preparation
+
+Run the deployment preparation script:
+```bash
+npm run deploy:prep
+```
+
+This will generate:
+- Required environment variables template
+- Encryption key for production
+- Deployment checklist
+- Platform recommendations
+
+### Production Checklist
+- [ ] **Database**: Production PostgreSQL (Supabase/Railway/Neon)
+- [ ] **Environment Variables**: All required vars configured
+- [ ] **Twilio**: Production account with verified phone number
+- [ ] **Domain**: Custom domain configured (optional)
+- [ ] **SSL**: HTTPS enabled (automatic with most platforms)
+- [ ] **Monitoring**: Error tracking and logging
+- [ ] **Backups**: Database backup strategy
+
+### Post-Deployment Steps
+
+1. **Test Core Features:**
+   ```bash
+   # Test API endpoints
+   curl https://your-app.com/api/test-db
+   curl https://your-app.com/api/contacts
+   ```
+
+2. **Set up Webhooks:**
+   - Configure Twilio webhook URL: `https://your-app.com/api/webhooks/twilio`
+   - Test message sending and receiving
+
+3. **Monitor Application:**
+   - Check logs for errors
+   - Monitor database performance
+   - Test all integrations
+
+### Troubleshooting
+
+**Common Issues:**
+- **Database Connection**: Ensure DATABASE_URL is correct
+- **Twilio Webhooks**: Verify webhook URL is accessible
+- **Environment Variables**: Check all required vars are set
+- **Build Errors**: Run `npm run build` locally first
+
+**Debug Commands:**
+```bash
+# Check database connection
+npm run test:api
+
+# View application logs
+# (Platform-specific - check your deployment platform docs)
+```
+
+## 📝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
